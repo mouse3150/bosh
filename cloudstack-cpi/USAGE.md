@@ -4,61 +4,59 @@
 
 ## Options
 
-These options are passed to the OpenStack CPI when it is instantiated.
+These options are passed to the CloudStack CPI when it is instantiated.
 
-### OpenStack options
+### CloudStack options
 
-* `auth_url` (required)
-  URL of the OpenStack Identity endpoint to connect to
-* `username` (required)
-  OpenStack user name
-* `api_key` (required)
-  OpenStack API key
-* `tenant` (required)
-  OpenStack tenant name
-* `region` (optional)
-  OpenStack region
+* `cloudstack_host` (required)
+  Host of the CloudStack Manager server endpoint to connect to
+* `cloudstack_port` (required)
+  Port of the CloudStack Manager server endpoint to connect to
+* `cloudstack_api_key` (required)
+  CloudStack API key
+* `cloudstack_secret_access_key` (required)
+  CloudStack secret access key due to access API
+* `cloudstack_scheme` (optional)
+  CloudStack Manager server http/https model. Default is https 
 * `default_key_name` (required)
-  default OpenStack ssh key name to assign to created virtual machines
-* `default_security_group` (required)
-  default OpenStack security group to assign to created virtual machines
-* `private_key` (required)
-  local path to the ssh private key, must match `default_key_name`
+  default CloudStack ssh key name to assign to created virtual machines
+* `default_security_groups` (optional)
+  default CloudStack security group to assign to created virtual machines
+
 
 ### Registry options
 
-The registry options are passed to the Openstack CPI by the BOSH director based on the settings in `director.yml`, but can be overridden if needed.
+The registry options are passed to the CloudStack CPI by the BOSH director based on the settings in `director.yml`, but can be overridden if needed.
 
 * `endpoint` (required)
-  OpenStack registry URL
+  CloudStack registry URL
 * `user` (required)
-  OpenStack registry user
+  CloudStack registry user
 * `password` (required)
-  rOpenStack egistry password
+  rCloudStack egistry password
 
 ### Agent options
 
-Agent options are passed to the OpenStack  CPI by the BOSH director based on the settings in `director.yml`, but can be overridden if needed.
+Agent options are passed to the CloudStack  CPI by the BOSH director based on the settings in `director.yml`, but can be overridden if needed.
 
 ### Resource pool options
 
 These options are specified under `cloud_options` in the `resource_pools` section of a BOSH deployment manifest.
 
 * `instance_type` (required)
-  which type of instance (OpenStack flavor) the VMs should belong to
-* `availability_zone` (optional)
-  the OpenStack availability zone the VMs should be created in
+  which type of instance (CloudStack flavor Medium Instance|Small Instance) the VMs should belong to
+
 
 ### Network options
 
 These options are specified under `cloud_options` in the `networks` section of a BOSH deployment manifest.
 
 * `type` (required)
-  can be either `dynamic` for a DHCP assigned IP by OpenStack, or `vip` to use a Floating IP (which needs to be already allocated)
+  can be either `dynamic` for a DHCP assigned IP by CloudStack, or `vip` to use a Floating IP (which needs to be already allocated)
 
 ## Example
 
-This is a sample of how OpenStack specific properties are used in a BOSH deployment manifest:
+This is a sample of how CloudStack specific properties are used in a BOSH deployment manifest:
 
     ---
     name: sample
@@ -84,19 +82,17 @@ This is a sample of how OpenStack specific properties are used in a BOSH deploym
         size: 3
         stemcell:
           name: bosh-stemcell
-          version: 0.6.7
+          version: 0.0.
         cloud_properties:
-          instance_type: m1.small
+          instance_type: "Medium Instance"
 
     ...
 
     properties:
-      openstack:
-        auth_url: http://pistoncloud.com/:5000/v2.0/tokens
-        username: christopher
-        api_key: QRoqsenPsNGX6
-        tenant: Bosh
-        region: us-west
-        default_key_name: bosh
-        default_security_groups: ["bosh"]
-        private_key: /home/bosh/.ssh/bosh.pem
+      cloudstack:
+        cloudstack_host: 168.1.43.14
+        cloudstack_port: 8080
+        cloudstack_api_key: hHdIgGdz6V-6I9Dc0dqhgUKutGJX-7_XTurvjd89SWAXPFiMZEy_Gb0uGfzbTyzS1rrdcwwZq81nxWS3UW8IcQ
+        cloudstack_secret_access_key: zKao312dFgDKFdSI04Kh2axSuiWDXLDXj848GFxXRvRZPjiEuA6UfQq4uGdEHxrvuaYoNpv3_SBWfRqX6lPIwg
+        cloudstack_scheme: http
+        default_security_groups: ["default"]
