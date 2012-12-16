@@ -18,7 +18,7 @@ env:
 resources:
   persistent_disk: 4096
   cloud_properties:
-    instance_type: 'Small Type'
+    instance_type: 'Small Instance'
     availability_zone:
 
 cloud:
