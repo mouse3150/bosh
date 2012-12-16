@@ -1,0 +1,13 @@
+---
+name: bosh-stemcell
+version: 0.0.1
+bosh_protocol: 1
+cloud_properties:
+  infrastructure: cloudstack
+  operation_system:
+  	name: ubuntu
+  	version: 10.04
+  	bit: 64
+  architecture: x86_64
+  root_device_name: /dev/sda1
+  url: http://168.1.43.101/8f598161-ffdb-4f07-82d4-9944e719e924.vhd.bz2

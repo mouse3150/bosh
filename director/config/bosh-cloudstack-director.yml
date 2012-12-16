@@ -1,0 +1,50 @@
+---
+name: Local Director
+port: 8080
+logging:
+  level: DEBUG
+redis:
+  host: 127.0.0.1
+  password:
+dir: /tmp/boshdir
+db:
+  database: "sqlite://director.db"
+  max_connections: 32
+  pool_timeout: 10
+blobstore:
+  plugin: simple
+  properties:
+    endpoint: http://127.0.0.1:9999
+    user: admin
+    password: admin
+cloud:
+  plugin: cloudstack
+  properties:
+    agent:
+      ntp:
+        - ntp01.las01.emcatmos.com
+      blobstore:
+        plugin: simple
+        properties:
+          endpoint: http://127.0.0.1:9999
+          user: admin
+          password: admin
+      server:
+        host: 127.0.0.1
+        password:
+    cloudstack:
+      - cloudstack_host: 168.1.43.14
+        cloudstack_port: 8080
+        cloudstack_api_key: hHdIgGdz6V-6I9Dc0dqhgUKutGJX-7_XTurvjd89SWAXPFiMZEy_Gb0uGfzbTyzS1rrdcwwZq81nxWS3UW8IcQ
+        cloudstack_secret_access_key: zKao312dFgDKFdSI04Kh2axSuiWDXLDXj848GFxXRvRZPjiEuA6UfQq4uGdEHxrvuaYoNpv3_SBWfRqX6lPIwg
+        cloudstack_scheme: http
+        default_key_name: default
+        default_security_groups: ["default"]
+    registry:
+      endpoint: http://admin:admin@localhost:25889
+      user: admin
+      password: admin
+    stemcell:
+      kernel_id:
+      disk: 4096
+job

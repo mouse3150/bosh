@@ -467,7 +467,8 @@ module Bosh::AwsCloud
                                root_device_name)
       settings = {
         "vm" => {
-          "name" => "vm-#{generate_unique_name}"
+          "name" => "vm-#{generate_unique_name}",
+          "id" => id
         },
         "agent_id" => agent_id,
         "networks" => network_spec,
