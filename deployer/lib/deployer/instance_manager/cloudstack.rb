@@ -26,15 +26,15 @@ module Bosh::Deployer
       def configure
         properties = Config.cloud_options["properties"]
         @ssh_user = properties["cloudstack"]["ssh_user"]
-        @ssh_port = properties["cloudstack"]["ssh_port"] || 8080
+        @ssh_port = properties["cloudstack"]["ssh_port"] || 22
         @ssh_wait = properties["cloudstack"]["ssh_wait"] || 60
 
-        key = properties["cloudstack"]["private_key"]
-        err "Missing properties.cloudstack.private_key" unless key
-        @ssh_key = File.expand_path(key)
-        unless File.exists?(@ssh_key)
-          err "properties.cloudstack.private_key '#{key}' does not exist"
-        end
+        key = properties["cloudstack"]["cloudstack_secrit_access_key"]
+        err "Missing properties.cloudstack.cloudstack_secrit_access_key" unless key
+        # @ssh_key = File.expand_path(key)
+        # unless File.exists?(@ssh_key)
+          # err "properties.cloudstack.private_key '#{key}' does not exist"
+        # end
 
         uri = URI.parse(properties["registry"]["endpoint"])
         user, password = uri.userinfo.split(":", 2)

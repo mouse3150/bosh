@@ -66,7 +66,8 @@ module Bosh::CloudStackCloud
             'zoneid' => cloud_properties['zoneid']
           }
           
-          @cloudstack.register_template(options)
+          response = @cloudstack.register_template(options)
+          stemcell_id = response['registertemplateresponse']['template']['id']
         rescue => e
           @logger.error(e)
           raise e
