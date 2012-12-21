@@ -88,16 +88,16 @@ module Bosh::Deployer
 
         timeout_time = Time.now.to_f + (60 * 5)
         http_client = HTTPClient.new()
-        begin
-          http_client.head("http://127.0.0.1:#{@registry_port}")
-          sleep 0.5
-        rescue URI::Error, SocketError, Errno::ECONNREFUSED => e
-          if timeout_time - Time.now.to_f > 0
-            retry
-          else
-            err "Cannot access cloudstack_registry: #{e.message}"
-          end
-        end
+        # begin
+          # http_client.head("http://127.0.0.1:#{@registry_port}")
+          # sleep 0.5
+        # rescue URI::Error, SocketError, Errno::ECONNREFUSED => e
+          # if timeout_time - Time.now.to_f > 0
+            # retry
+          # else
+            # err "Cannot access cloudstack_registry: #{e.message}"
+          # end
+        # end
         logger.info("cloudstack_registry is ready on port #{@registry_port}")
       ensure
         @registry_config.unlink if @registry_config
@@ -127,11 +127,7 @@ module Bosh::Deployer
       def discover_bosh_ip
         if exists?
           server = cloud.cloudstack.servers.get(state.vm_cid)
-          
-          floating_ip = cloud.cloudstack.addresses.find {
-                          |addr| addr.instance_id == server.id
-                        }
-          ip = floating_ip.nil? ? service_ip : floating_ip.ip
+          ip = server.ip_address
           err "Unable to discover bosh ip" if ip.nil?
 
           if ip != Config.bosh_ip
@@ -145,16 +141,11 @@ module Bosh::Deployer
 
       def service_ip
         server = cloud.cloudstack.servers.get(state.vm_cid)
-        # Since OS API 1.1, server addresses exposes the network names
-        # instead of the network types, so we need to known which network
-        # label is used in OS (label parm or "private" by default) to fetch
-        # the service IP address.
-        net_conf  = Config.net_conf
-        net_label = net_conf["label"].nil? ? "private" : net_conf["label"]
-        ip_addresses = server.addresses[net_label]
-        unless ip_addresses.nil? || ip_addresses.empty?
-          address = ip_addresses.select { |ip| ip["version"] == 4 }.first
-          ip = address ? address["addr"] : nil
+        ip = nil
+        if server
+          ip = server.ip_address
+        else
+          err "Unable to discover server(virtual machine) in cloudstack"
         end
         err "Unable to discover service ip" if ip.nil?
         ip

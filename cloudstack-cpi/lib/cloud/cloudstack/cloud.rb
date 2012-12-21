@@ -67,7 +67,7 @@ module Bosh::CloudStackCloud
           }
           
           response = @cloudstack.register_template(options)
-          stemcell_id = response['registertemplateresponse']['template']['id']
+          stemcell_id = response['registertemplateresponse']['template'][0]['id']
         rescue => e
           @logger.error(e)
           raise e
@@ -142,7 +142,7 @@ module Bosh::CloudStackCloud
         end
         @logger.debug("Using flavor: `#{config["instance_type"]}'")
         
-        vm_params = {
+        server_params = {
           #requires
           :flavor_id => flavor.id,
           :image_id => stemcell_id,
@@ -154,27 +154,27 @@ module Bosh::CloudStackCloud
         }
 
         if @default_security_groups || config["securitygroupid"]
-          vm_params[:securitygroupids] = @default_security_groups ? @default_security_groups : config["securitygroupid"]
+          server_params[:securitygroupids] = @default_security_groups ? @default_security_groups : config["securitygroupid"]
         end
         
         if config["ipaddress"]
-          vm_params[:ip_address] = config["ipaddress"]
+          server_params[:ip_address] = config["ipaddress"]
         end
         
         begin
-          vm = @cloudstack.servers.create(vm_params)
+          server = @cloudstack.servers.create(server_params)
         rescue => e
           @logger.error(e)
           raise e
         end
         
-        if vm
+        if server
           @logger.info("Updating settings for server `#{server.id}'...")
-          settings = initial_agent_settings(server_name, vm.id,  agent_id, network_spec,
+          settings = initial_agent_settings(server_name, server.id,  agent_id, network_spec,
                                             environment)
-          @registry.update_settings(vm.diplay_name, settings)
+          @registry.update_settings(server_name, settings)
   
-          vm.id.to_s
+          server.id.to_s
         end
 
       end
