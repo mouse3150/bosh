@@ -4,7 +4,7 @@ module Bosh::CloudStackCloud
 
   module Helpers
 
-    DEFAULT_TIMEOUT = 600 # Default timeout for target state (in seconds)
+    DEFAULT_TIMEOUT = 720 # Default timeout for target state (in seconds)
 
     ##
     # Raises CloudError exception
@@ -51,7 +51,7 @@ module Bosh::CloudStackCloud
           break if allow_notfound
           cloud_error("#{desc}: Resource not found")
         else
-          state = resource.send(state_method).downcase.to_sym
+          state = resource.send(state_method).to_s.downcase.to_sym
         end
 
         # This is not a very strong convention, but some resources

@@ -57,17 +57,18 @@ module Bosh::CloudStackCloud
       with_thread_name("create_stemcell(#{image_path}...)") do
         begin
           options = {
-            'displaytext' => cloud_properties['displaytext'],
-            'format' => cloud_properties['format'],
-            'hypervisor' => cloud_properties['hypervisor'],
-            'name' => cloud_properties['name'],
-            'ostypeid' => cloud_properties['ostypeid'],
-            'url' => cloud_properties['url'],
-            'zoneid' => cloud_properties['zoneid']
+            :display_text => cloud_properties['displaytext'],
+            :format => cloud_properties['format'],
+            :hypervisor => cloud_properties['hypervisor'],
+            :name => cloud_properties['name'],
+            :os_type_id => cloud_properties['ostypeid'],
+            :url => cloud_properties['url'],
+            :zoneid => cloud_properties['zoneid']
           }
           
-          response = @cloudstack.register_template(options)
-          stemcell_id = response['registertemplateresponse']['template'][0]['id']
+          image = @cloudstack.images.create(options)
+          wait_resource(image, :true, :is_ready)
+          stemcell_id = image.id
         rescue => e
           @logger.error(e)
           raise e

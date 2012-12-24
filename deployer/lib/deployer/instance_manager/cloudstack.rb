@@ -6,54 +6,7 @@ module Bosh::Deployer
     class Cloudstack < InstanceManager
 
       include InstanceManagerHelpers
-      
-      def create(stemcell_tgz)
-        err "VM #{state.vm_cid} already exists" if state.vm_cid
-        if state.stemcell_cid && state.stemcell_cid != state.stemcell_name
-          err "stemcell #{state.stemcell_cid} already exists"
-        end
-  
-        renderer.enter_stage("Deploy Micro BOSH", 11)
-  
-        state.stemcell_cid = create_stemcell(stemcell_tgz)
-        sleep(6*60)
-        state.stemcell_name = File.basename(stemcell_tgz, ".tgz")
-        save_state
-  
-        begin
-          step "Creating VM from #{state.stemcell_cid}" do
-            state.vm_cid = create_vm(state.stemcell_cid)
-            discover_bosh_ip
-          end
-          save_state
-        rescue => e
-          # only delete the stemcell if we were trying to upload it
-          delete_stemcell if is_tgz?(stemcell_tgz)
-          raise e
-        end
-  
-        step "Waiting for the agent" do
-          wait_until_agent_ready
-        end
-  
-        step "Updating persistent disk" do
-          update_persistent_disk
-        end
-  
-        unless @apply_spec
-          step "Fetching apply spec" do
-            @apply_spec = agent.release_apply_spec
-          end
-        end
-  
-        apply(@apply_spec)
-  
-        step "Waiting for the director" do
-          wait_until_director_ready
-        end
-    end
-
-
+   
       def update_spec(spec)
         spec = super(spec)
         properties = spec["properties"]
