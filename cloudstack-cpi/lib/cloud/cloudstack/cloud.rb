@@ -167,7 +167,7 @@ module Bosh::CloudStackCloud
           @logger.error(e)
           raise e
         end
-        
+        wait_resource(server, :running, :state)
         if server
           @logger.info("Updating settings for server `#{server.id}'...")
           settings = initial_agent_settings(server_name, server.id,  agent_id, network_spec,
