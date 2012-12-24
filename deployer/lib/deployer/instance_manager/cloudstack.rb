@@ -6,6 +6,53 @@ module Bosh::Deployer
     class Cloudstack < InstanceManager
 
       include InstanceManagerHelpers
+      
+      def create(stemcell_tgz)
+        err "VM #{state.vm_cid} already exists" if state.vm_cid
+        if state.stemcell_cid && state.stemcell_cid != state.stemcell_name
+          err "stemcell #{state.stemcell_cid} already exists"
+        end
+  
+        renderer.enter_stage("Deploy Micro BOSH", 11)
+  
+        state.stemcell_cid = create_stemcell(stemcell_tgz)
+        sleep(6*60)
+        state.stemcell_name = File.basename(stemcell_tgz, ".tgz")
+        save_state
+  
+        begin
+          step "Creating VM from #{state.stemcell_cid}" do
+            state.vm_cid = create_vm(state.stemcell_cid)
+            discover_bosh_ip
+          end
+          save_state
+        rescue => e
+          # only delete the stemcell if we were trying to upload it
+          delete_stemcell if is_tgz?(stemcell_tgz)
+          raise e
+        end
+  
+        step "Waiting for the agent" do
+          wait_until_agent_ready
+        end
+  
+        step "Updating persistent disk" do
+          update_persistent_disk
+        end
+  
+        unless @apply_spec
+          step "Fetching apply spec" do
+            @apply_spec = agent.release_apply_spec
+          end
+        end
+  
+        apply(@apply_spec)
+  
+        step "Waiting for the director" do
+          wait_until_director_ready
+        end
+    end
+
 
       def update_spec(spec)
         spec = super(spec)
@@ -74,11 +121,11 @@ module Bosh::Deployer
           err "cloudstack_registry command not found - " +
             "run 'gem install bosh_cloudstack_registry'"
         end
-
+        logger.info("cloudstack_registry config file #{@registry_config}")
         cmd = "cloudstack_registry -c #{@registry_config.path}"
 
         @registry_pid = spawn(cmd)
-
+        logger.info("cloudstack_registry server pid #{@registry_pid}")
         5.times do
           sleep 0.5
           if Process.waitpid(@registry_pid, Process::WNOHANG)
@@ -88,16 +135,16 @@ module Bosh::Deployer
 
         timeout_time = Time.now.to_f + (60 * 5)
         http_client = HTTPClient.new()
-        # begin
-          # http_client.head("http://127.0.0.1:#{@registry_port}")
-          # sleep 0.5
-        # rescue URI::Error, SocketError, Errno::ECONNREFUSED => e
-          # if timeout_time - Time.now.to_f > 0
-            # retry
-          # else
-            # err "Cannot access cloudstack_registry: #{e.message}"
-          # end
-        # end
+        begin
+          http_client.head("http://127.0.0.1:#{@registry_port}")
+          sleep 0.5
+        rescue URI::Error, SocketError, Errno::ECONNREFUSED => e
+          if timeout_time - Time.now.to_f > 0
+            retry
+          else
+            err "Cannot access cloudstack_registry: #{e.message}"
+          end
+        end
         logger.info("cloudstack_registry is ready on port #{@registry_port}")
       ensure
         @registry_config.unlink if @registry_config
@@ -127,7 +174,7 @@ module Bosh::Deployer
       def discover_bosh_ip
         if exists?
           server = cloud.cloudstack.servers.get(state.vm_cid)
-          ip = server.ip_address
+          ip = server.addresses[0].ip_address
           err "Unable to discover bosh ip" if ip.nil?
 
           if ip != Config.bosh_ip
@@ -143,7 +190,7 @@ module Bosh::Deployer
         server = cloud.cloudstack.servers.get(state.vm_cid)
         ip = nil
         if server
-          ip = server.ip_address
+          ip = server.addresses[0].ip_address
         else
           err "Unable to discover server(virtual machine) in cloudstack"
         end

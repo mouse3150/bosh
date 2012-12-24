@@ -1,6 +1,6 @@
 # Copyright (c) 2009-2012 VMware, Inc.
 
-module Bosh::CloudRegistry::Models
+module Bosh::CloudStackRegistry::Models
   class CloudstackServer < Sequel::Model
 
     def validate

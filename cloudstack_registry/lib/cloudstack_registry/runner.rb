@@ -6,8 +6,10 @@ module Bosh::CloudstackRegistry
 
     def initialize(config_file)
       Bosh::CloudstackRegistry.configure(load_yaml_file(config_file))
-
       @logger = Bosh::CloudstackRegistry.logger
+      @http_port = Bosh::CloudstackRegistry.http_port
+      @http_user = Bosh::CloudstackRegistry.http_user
+      @http_password = Bosh::CloudstackRegistry.http_password
     end
 
     def run

@@ -150,7 +150,7 @@ module Bosh::CloudStackCloud
           
           #options
           :display_name => server_name,
-          :user_data => Yajl::Encoder.encode(user_data)
+          :user_data => Base64.encode64(Yajl::Encoder.encode(user_data))
         }
 
         if @default_security_groups || config["securitygroupid"]

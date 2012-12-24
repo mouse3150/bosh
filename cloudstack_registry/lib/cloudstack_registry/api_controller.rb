@@ -15,6 +15,11 @@ module Bosh::CloudstackRegistry
       json(:status => "error")
     end
 
+    get "/info" do
+      settings = "Cloudstack Registry Successfully!!!"
+      json(:status => "ok", :settings => settings)
+    end
+    
     get "/servers/:server_id/settings" do
       ip_check = authorized? ? nil : request.ip
       settings = @server_manager.read_settings(params[:server_id])

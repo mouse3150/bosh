@@ -11,6 +11,7 @@ require "set"
 require "tmpdir"
 require "uuidtools"
 require "yajl"
+require "base64"
 
 require "common/thread_pool"
 require "common/thread_formatter"
