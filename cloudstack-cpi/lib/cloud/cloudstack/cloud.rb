@@ -63,7 +63,7 @@ module Bosh::CloudStackCloud
             :name => cloud_properties['name'],
             :os_type_id => cloud_properties['ostypeid'],
             :url => cloud_properties['url'],
-            :zoneid => cloud_properties['zoneid']
+            :zone_id => cloud_properties['zoneid']
           }
           
           image = @cloudstack.images.create(options)
@@ -173,7 +173,7 @@ module Bosh::CloudStackCloud
           @logger.info("Updating settings for server `#{server.id}'...")
           settings = initial_agent_settings(server_name, server.id,  agent_id, network_spec,
                                             environment)
-          @registry.update_settings(server_name, settings)
+          @registry.update_settings(server.display_name, settings)
   
           server.id.to_s
         end
@@ -195,7 +195,7 @@ module Bosh::CloudStackCloud
           wait_resource(server, :running, :state, true)
 
           @logger.info("Deleting settings for vm `#{server.id}'...")
-          @registry.delete_settings(server.name)
+          @registry.delete_settings(server.display_name)
         else
           @logger.info("vm `#{vm_id}' not found. Skipping.")
         end
@@ -235,40 +235,46 @@ module Bosh::CloudStackCloud
     # @param [optional, String] server_id CloudStack server UUID of the VM that
     #   this disk will be attached to
     # @return [String] CloudStack volume UUID
-    def create_disk(size, server_id = nil)
-      with_thread_name("create_disk(#{size}, #{server_id})") do
-        unless size.kind_of?(Integer)
-          raise ArgumentError, "Disk size needs to be an integer"
+    def create_disk(size_type, zone_id, server_id = nil)
+      with_thread_name("create_disk(#{size_type}, #{server_id})") do
+        cs_disk_type = %w(Small Medium Large)
+        unless cs_disk_type.include? size_type.capitalize
+          raise ArgumentError, "Cloudstack Disk type error, require Small|Medium|Large"
         end
-
-        if (size < 1024)
-          cloud_error("Minimum disk size is 1 GiB")
-        end
-
-        if (size > 1024 * 1000)
-          cloud_error("Maximum disk size is 1 TiB")
-        end
+        
+        disk_offering_id = get_disk_offering_id(size_type)
+        
+        # unless size.kind_of?(Integer)
+          # raise ArgumentError, "Disk size needs to be an integer"
+        # end
+        # 
+        # if (size < 1024)
+          # cloud_error("Minimum disk size is 1 GiB")
+        # end
+        #
+        # if (size > 1024 * 1000)
+          # cloud_error("Maximum disk size is 1 TiB")
+        # end
         #cloudstack create volume fog require :name,:disk_offering_id,:zone_id
-        #TODO need fetch disk_offering_id
         volume_params = {
           :name => "volume-#{generate_unique_name}",
-          :disk_offering_id => "",
-          :zone_id => "",
-          :size => (size / 1024.0).ceil,
+          :disk_offering_id => disk_offering_id,
+          :zone_id => zone_id,
+          #:size => (size / 1024.0).ceil,
         }
 
-        if server_id
-          server = @cloudstack.servers.get(server_id)
-          if server && server.availability_zone
-            volume_params[:availability_zone] = server.availability_zone
-          end
-        end
+        # if server_id
+          # server = @cloudstack.servers.get(server_id)
+          # if server && server.availability_zone
+            # volume_params[:availability_zone] = server.availability_zone
+          # end
+        # end
 
         @logger.info("Creating new volume...")
         volume = @cloudstack.volumes.create(volume_params)
 
         @logger.info("Creating new volume `#{volume.id}'...")
-        wait_resource(volume, :available)
+        wait_resource(volume, :true, :ready?)
         
         volume.id.to_s
       end
@@ -285,13 +291,14 @@ module Bosh::CloudStackCloud
         @logger.info("Deleting volume `#{disk_id}'...")
         volume = @cloudstack.volumes.get(disk_id)
         if volume
-          state = volume.state
-          if !state.ready?
-            cloud_error("Cannot delete volume `#{disk_id}', state is #{state}")
-          end
+          # state = volume.state
+          # if !state.ready?
+            # cloud_error("Cannot delete volume `#{disk_id}', state is #{state}")
+          # end
 
           volume.destroy
           wait_resource(volume, :deleted, :status, true)
+          @logger.info("Volume `#{disk_id}' delete successfully.")
         else
           @logger.info("Volume `#{disk_id}' not found. Skipping.")
         end
@@ -311,7 +318,7 @@ module Bosh::CloudStackCloud
           cloud_error("Server `#{server_id}' not found")
         end
         volume = @cloudstack.volumes.get(disk_id)
-        unless server
+        unless volume
           cloud_error("Volume `#{disk_id}' not found")
         end
 
@@ -333,12 +340,12 @@ module Bosh::CloudStackCloud
     # @return [void]
     def detach_disk(server_id, disk_id)
       with_thread_name("detach_disk(#{server_id}, #{disk_id})") do
-        server = @openstack.servers.get(server_id)
+        server = @cloudstack.servers.get(server_id)
         unless server
           cloud_error("Server `#{server_id}' not found")
         end
-        volume = @openstack.volumes.get(disk_id)
-        unless server
+        volume = @cloudstack.volumes.get(disk_id)
+        unless volume
           cloud_error("Volume `#{disk_id}' not found")
         end
 
@@ -361,7 +368,26 @@ module Bosh::CloudStackCloud
     end
 
     private
-
+    
+    ##get disk offering id by disk type
+    def get_disk_offering_id(size_type = 'Small')
+      response = @cloudstack.list_disk_offerings
+      id = nil
+      if response
+        response['listdiskofferingsresponse']['diskoffering'].each do |item|
+          if item['name'] == size_type
+            id = item['id']
+          end
+        end
+      else
+        cloud_error("List all cloudstack disk offerings error")
+      end
+      
+      if id.nil?
+        cloud_error("Get `#{size_type}' cloudstack disk offering id")
+      end
+      id
+    end
     ##
     # Generates an unique name
     #
@@ -391,6 +417,11 @@ module Bosh::CloudStackCloud
         },
         "agent_id" => agent_id,
         "networks" => network_spec,
+        "disks" => {
+          "system" => "/dev/xvda",
+          "ephemeral" => "/dev/xvdb",
+          "persistent" => {}
+        }
       }
 
       settings["env"] = environment if environment
@@ -407,9 +438,9 @@ module Bosh::CloudStackCloud
       end
 
       @logger.info("Updating settings for server `#{server.id}'...")
-      settings = @registry.read_settings(server.name)
+      settings = @registry.read_settings(server.display_name)
       yield settings
-      @registry.update_settings(server.name, settings)
+      @registry.update_settings(server.display_name, settings)
     end
 
     ##
@@ -418,8 +449,8 @@ module Bosh::CloudStackCloud
     # @param [Fog::Compute::CloudStack::Server] server CloudStack server
     # @return [void]
     def soft_reboot(server)
-      @logger.info("Soft rebooting vm `#{vm.id}'...")
-      vm.reboot
+      @logger.info("Soft rebooting server `#{server.id}'...")
+      server.reboot
       wait_resource(server, :running, :state)
     end
 
@@ -441,37 +472,44 @@ module Bosh::CloudStackCloud
     # @param [Fog::Compute::CloudStack::Volume] volume CloudStack volume
     # @return [String] Device name
     def attach_volume(server, volume)
-      #get taken devices of this vm
+      #get have been taken devices of this vm
       # volume_attachments = @cloudstack.get_server_volumes(server.id).
-      #                      body['volumeAttachments']
+                            # body['volumeAttachments']
+      # device_names = Set.new(volume_attachments.collect! { |v| v["device"] })
+      # device_names = Set.new
+      # new_attachment = nil
+      # ("c".."z").each do |char|
+        # dev_name = "/dev/vd#{char}"
+        # if device_names.include?(dev_name)
+          # @logger.warn("`#{dev_name}' on `#{server.id}' is taken")
+          # next
+        # end
+        # @logger.info("Attaching volume `#{volume.id}' to `#{server.id}', " \
+                     # "device name is `#{dev_name}'")
+        # if volume.attach(server.id, dev_name)
+          # wait_resource(volume, :"in-use", :server_id)
+          # new_attachment = dev_name
+        # end
+        # break
+      # end
+      volume.attach(server)
+      # if new_attachment.nil?
+        # cloud_error("Server has too many disks attached")
+      # end
       
-      #device_names = Set.new(volume_attachments.collect! { |v| v["device"] })
-      device_names = Set.new
-      new_attachment = nil
-      ("c".."z").each do |char|
-        dev_name = "/dev/vd#{char}"
-        if device_names.include?(dev_name)
-          @logger.warn("`#{dev_name}' on `#{server.id}' is taken")
-          next
+      loop do
+        volume.reload
+        unless volume.server_id.nil?
+          break
         end
-        @logger.info("Attaching volume `#{volume.id}' to `#{server.id}', " \
-                     "device name is `#{dev_name}'")
-        if volume.attach(server.id, dev_name)
-          wait_resource(volume, :"in-use", :server_id)
-          new_attachment = dev_name
-        end
-        break
+        sleep(1)
       end
-
-      if new_attachment.nil?
-        cloud_error("Server has too many disks attached")
-      end
-
-      new_attachment
+      @logger.info("`#{volume.id}' attached to `#{server.id}' successfully..")
+      "/dev/xvdb"
     end
 
     ##
-    # Detaches an CloudStack volume from an OpenStack server
+    # Detaches an CloudStack volume from an CloudStack server
     #
     # @param [Fog::Compute::CloudStack::Server] server CloudStack server
     # @param [Fog::Compute::CloudStack::Volume] volume CloudStack volume
@@ -480,16 +518,24 @@ module Bosh::CloudStackCloud
       # get 
       # volume_attachments = @cloudstack.get_server_volumes(server.id).
       #                      body['volumeAttachments']
-      device_map = volume_attachments.collect! { |v| v["volumeId"] }
+      #device_map = volume_attachments.collect! { |v| v["volumeId"] }
 
-      unless device_map.include?(volume.id)
-        cloud_error("Disk `#{volume.id}' is not attached to " \
-                    "server `#{server.id}'")
+      #unless device_map.include?(volume.id)
+      #  cloud_error("Disk `#{volume.id}' is not attached to " \
+      #              "server `#{server.id}'")
+      #end
+      if volume
+        volume.detach
+        loop do
+          volume.reload
+          
+          if volume.server_id.nil?
+            break
+          end
+          sleep(1)
+        end
       end
-
       @logger.info("Detaching volume `#{volume.id}' from `#{server.id}'...")
-      volume.detach(server.id, volume.id)
-      wait_resource(volume, :available)
     end
 
     ##
@@ -527,7 +573,7 @@ module Bosh::CloudStackCloud
     end
 
     def task_checkpoint
-      Bosh::Clouds::Config.task_checkpoint
+      #Bosh::Clouds::Config.task_checkpoint
     end
 
   end
