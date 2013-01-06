@@ -64,6 +64,8 @@ module Bosh::Agent
       when "openstack"
         # OpenStack passes in the device name
         get_available_path(disk_id)
+      when "cloudstack"
+        get_available_path(disk_id)
       else
         raise Bosh::Agent::FatalError, "Lookup disk failed, unsupported infrastructure " \
                                        "#{Bosh::Agent::Config.infrastructure_name}"
@@ -132,6 +134,14 @@ module Bosh::Agent
         end
 
         get_available_path(dev_path)
+      when "cloudstack"
+        settings = Bosh::Agent::Config.settings
+        dev_path = settings['disks']['ephemeral']
+        unless dev_path
+          raise Bosh::Agent::FatalError, "Unknown data or ephemeral disk"
+        end
+        
+        dev_path
       else
         raise Bosh::Agent::FatalError, "Lookup disk failed, unsupported infrastructure " \
                                        "#{Bosh::Agent::Config.infrastructure_name}"
